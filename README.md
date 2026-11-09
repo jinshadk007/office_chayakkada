@@ -59,3 +59,15 @@ Browser tests use system Chromium or Playwright Chromium (`npx playwright instal
 Vercel follows GitHub `main`. Node.js 24, the Vite build, and `/api/room` are configured in source. Push tested changes to trigger the connected production build. The old video is not included. No new AI-video asset is active; the existing still provides the fallback.
 
 Passwords use salted scrypt hashes. Password metadata is never sent to the browser. Room-scoped signed sessions last seven days. Ten incorrect password attempts trigger a one-minute pause. **Lock workspace** forgets this browser's access. Everyone with the team password can manage orders, prices, sponsorship, and payments; there are no individual employee accounts or administrator roles.
+
+## When the live page appears unchanged
+
+Open `/release.json` on the deployed site. This file is emitted with each build, is not cached, and reports the actual Git commit when Vercel/Git supplies it, the cinematic player feature marker, and whether a new approved film/frame sequence is configured. It contains no credentials or orders.
+
+- `release: "cinematic-scroll-v1"` confirms the player code is present.
+- `newFilmConfigured: false` means the reference photo is the expected fallback; no new AI film was generated or supplied. The film control stays hidden. Motion/optional sound controls and success interactions still work.
+- A 404 means that deployment predates the build-check feature or points to a different source. In Vercel verify the connected repository is `jinshadk007/office_chayakkada`, production branch is `main`, and the Production/Current deployment uses the latest Git commit. A successful Git push alone does not prove that the production alias was updated.
+- Reduced-motion or save-data settings intentionally start motion paused. The motion control can enable it explicitly.
+- A database setup error prevents the shared order form from opening; check `/api/room?health=1` separately. It is not proof that the frontend release is old.
+
+Live page and GitHub deployment-status requests are blocked from this chat environment. A production commit or the release JSON is required to distinguish an old deployment from the expected static fallback; do not report a live rollout as verified merely because local checks pass.
