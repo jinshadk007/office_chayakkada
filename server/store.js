@@ -1,4 +1,5 @@
 import {fresh,change} from './domain.js';
+import {DEFAULT_OFFICE_ID} from '../config/orattice.js';
 import {publicSupabase} from '../config/supabase-public.js';
 let db,remote;
 function databaseSettings(){
@@ -16,9 +17,19 @@ async function connection(){
   return remote;
  }
  if(process.env.VERCEL)throw Error('DATABASE_NOT_CONFIGURED');
- if(!db){const {DatabaseSync}=await import('node:sqlite');const {mkdirSync}=await import('node:fs');mkdirSync('.local',{recursive:true});db=new DatabaseSync('.local/chayakkada.sqlite');db.exec('CREATE TABLE IF NOT EXISTS tea_rooms (id TEXT PRIMARY KEY, data TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 0)');}
+ if(!db){const {DatabaseSync}=await import('node:sqlite');const {mkdirSync}=await import('node:fs');const {dirname}=await import('node:path');const path=process.env.TEA_SQLITE_PATH||'.local/chayakkada.sqlite';mkdirSync(dirname(path),{recursive:true});db=new DatabaseSync(path);db.exec('CREATE TABLE IF NOT EXISTS tea_rooms (id TEXT PRIMARY KEY, data TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 0)');}
  return null;
 }
 export async function create(id,company,access){const store=await connection();if(store)return store.create(id,company,access);const data=fresh(company);if(access)data._access=access;db.prepare('INSERT INTO tea_rooms (id,data) VALUES (?,?)').run(id,JSON.stringify(data));return data;}
 export async function get(id){const store=await connection();if(store)return store.get(id);const row=db.prepare('SELECT data,revision FROM tea_rooms WHERE id=?').get(id);return row?{data:JSON.parse(row.data),revision:row.revision}:null;}
 export async function mutate(id,action){const store=await connection();if(store)return store.mutate(id,action);for(let i=0;i<8;i++){const row=await get(id);if(!row)return null;const data=change(row.data,action);const result=db.prepare('UPDATE tea_rooms SET data=?,revision=revision+1 WHERE id=? AND revision=? RETURNING revision').all(JSON.stringify(data),id,row.revision);if(result.length)return {data,revision:result[0].revision};}throw Error('This room is busy. Please try again.');}
+
+let selectedOffice;
+export async function officeId(){
+ if(selectedOffice)return selectedOffice;
+ const store=await connection();
+ const rows=store?await store.officeIds():db.prepare("SELECT id FROM tea_rooms WHERE lower(trim(json_extract(data,'$.company'))) = 'orattice' LIMIT 2").all();
+ if(rows.length>1){const error=new Error('More than one older Orattice tea book exists. Please ask the organiser to select the correct book. No records have been changed.');error.status=409;throw error;}
+ selectedOffice=rows[0]?.id||DEFAULT_OFFICE_ID;
+ return selectedOffice;
+}

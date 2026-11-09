@@ -14,7 +14,7 @@ function fixture(){
   const headers=new Headers(options.headers);assert.equal(headers.get('apikey'),'test-server-key');
   if(fail)return Response.json({message:'unavailable',code:'08006'},{status:503});
   const id=url.searchParams.get('id')?.replace(/^eq\./,''),row=rows.get(id);
-  if(method==='GET')return Response.json(row?[structuredClone(row)]:[]);
+  if(method==='GET'){if(url.searchParams.has('data->>company'))return Response.json([...rows.values()].filter(r=>r.data.company.toLowerCase()==='orattice').slice(0,2).map(r=>({id:r.id})));return Response.json(row?[structuredClone(row)]:[]);}
   const body=JSON.parse(options.body);
   if(method==='POST'){rows.set(body.id,structuredClone(body));return new Response(null,{status:201});}
   if(method==='PATCH'){
@@ -46,3 +46,5 @@ test('missing Supabase room returns null and service errors do not become empty 
  const f=fixture();assert.equal(await f.store.get(randomUUID()),null);assert.equal(await f.store.mutate(randomUUID(),{type:'finish'}),null);
  f.fail();await assert.rejects(f.store.get(randomUUID()),{message:'SUPABASE_REQUEST_FAILED',code:'08006'});
 });
+
+test('Supabase finds an existing Orattice book without replacing its saved records',async()=>{const f=fixture(),id=randomUUID();await f.store.create(id,'Orattice');await f.store.mutate(id,{type:'add',name:'Anjali',drink:'tea',qty:1});assert.deepEqual(await f.store.officeIds(),[{id}]);assert.equal((await f.store.get(id)).data.orders.length,1);});

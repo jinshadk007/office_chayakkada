@@ -1,20 +1,37 @@
-# Chayakkada
+# Orattice Chayakkada
 
-A simple office tea corner. No email, account registration, verification, or separate login page.
+One office. One saved tea round. No company chooser, tenant setup, email sign-in, or account registration.
 
-## Use
+## Everyday use
 
-1. Open the site and enter your company name and a shared password (6+ characters).
-2. Copy the invite link. Send the link and company password to your teammates.
-3. Teammates enter the password inline, add their name, and choose their drink.
-4. One person shares the combined order with the tea shop on WhatsApp.
-5. Finish the delivered round to record dues in the Pattu book. A sponsor can cover the whole round. Record payments as money is received.
+Open `https://officechayakkada.vercel.app/`, enter the shared Orattice password, add your name and drink, and let one teammate send the combined order to the tea shop on WhatsApp. The Pattu book records dues and payments across rounds. A sponsor can treat the whole team.
 
-Tea round and Pattu book are separate tabs. Drink prices are editable, existing orders retain their original prices, and balances carry between rounds. Payments are recorded manually; the app does not transfer money.
+The first visit sets the shared password once. Everyone subsequently uses the same address and password. Orders and payments are stored on the server, so refreshes and other employees' phones see the same saved book. Browser storage only remembers the session and your name; it is not the source of shared orders.
 
-## Run
+The uploaded tea-delivery reference is included as a compressed, silent 2.4-second clip. The cup mascot, steam, order reactions, and sponsor celebration are decorative. **Pause the fun** stops video and animations. Reduced-motion preferences start the scene paused. The phone ordering view uses a compact clip so the form stays close to the top.
 
-Requires Node.js 24.
+## Database connection — required for the live site
+
+We are keeping Supabase for shared persistence, as requested. Supabase Auth and email verification are not part of everyday ordering.
+
+1. In **Supabase → Settings → API Keys → Secret keys**, get the project's server secret key.
+2. In **Vercel → officechayakkada → Settings → Environment Variables**, add `SUPABASE_SECRET_KEY` for **Production** (and Preview if required). Save and redeploy. Keep the actual key in that secure field, not in source or chat. Legacy `SUPABASE_SERVICE_ROLE_KEY` also works.
+3. The project URL is already configured in `config/supabase-public.js`; `SUPABASE_URL` can override it.
+4. Inspect the project and apply `supabase/migrations/202611090001_create_tea_rooms.sql` if the table has not been created. This enables row-level security and restricts table access to the server role.
+
+`DATABASE_NOT_CONFIGURED` means the deployed function has no server key. A successful frontend deployment does not establish database readiness. The health endpoint now makes an actual read-only table query: open `/api/room?health=1` and check `ready`. A failure returns a safe code and a precise next action, without exposing keys or orders. `DATABASE_TABLE_MISSING` means to apply the SQL migration; `DATABASE_KEY_REJECTED` means to correct the server key; `DATABASE_PERMISSION_DENIED` means to use the server secret and check table grants. A successful read does not by itself verify every write operation. There is deliberately no empty browser-only fallback that would make employees' orders diverge or mask lost connectivity.
+
+The chat environment currently has no Supabase/Vercel tools, login, or server secret, and network requests to these services are blocked. Hosted connectivity cannot be claimed until credentials/settings are supplied and the real site is verified.
+
+## Existing data
+
+The backend reuses a single existing book named **Orattice** (case insensitive), including its current password, orders, and Pattu book. If no such book exists, it uses a stable ID from `config/orattice.js`. Old data is never deleted. If multiple older Orattice books exist, setup stops and asks the organiser to select/consolidate them; it does not guess or overwrite financial records. No new schema is required for this change.
+
+An older email-protected Orattice book can be given a shared password from the original signed-in browser. Its old Supabase session is verified server-side for that one-time upgrade. No new email login page is offered. Without that original session, an organiser must migrate access; anonymous visitors cannot claim the saved book.
+
+## Development and checks
+
+Requires Node.js 24. Use the existing checkout; cloud tasks are already isolated and do not need a worktree.
 
 ```sh
 npm ci --cache /tmp/npm-cache
@@ -24,35 +41,12 @@ npm run test:browser
 npm run build
 ```
 
-Local development uses SQLite in `.local/chayakkada.sqlite`. No credentials are required locally. The browser test exercises the real local password/session API with two isolated employee browsers. It uses system Chromium if installed, or Playwright Chromium (`npx playwright install chromium`); `CHROMIUM_PATH` can override the executable.
+Local development uses persistent SQLite at `.local/chayakkada.sqlite`, with no credentials required. Tests use their own temporary databases and never clear the development book. `TEA_SQLITE_PATH` can override the local path. Hosted production never falls back to SQLite. `npm run preview` only serves static assets; use the dev server for functional API checks.
 
-Use the existing checkout. Cloud tasks are already isolated; do not create a worktree unless requested. Restart the development server after backend changes. `npm run preview` serves static assets only; use the dev server for API testing.
+Browser tests use system Chromium or Playwright Chromium (`npx playwright install chromium`); `CHROMIUM_PATH` can override the executable. They exercise two employee browsers, actual password/session handling, video playback/pause, reduced motion, sponsorship, partial payments, responsive layouts, refresh, and persistence after restarting the local server. Adapter tests use controlled PostgREST responses; they do not verify the hosted Supabase project.
 
-## Supabase and Vercel
+## Deployment
 
-Production uses Supabase **as the database**. Supabase Auth email settings are no longer part of the employee flow.
+Vercel follows GitHub `main`. Node.js 24, the Vite build, and `/api/room` are configured in source. Push tested changes to trigger the connected production build. The uploaded original MOV is not included; only its compressed silent clip and poster are served.
 
-- Connect `jinshadk007/office_chayakkada` in Vercel with `main` as the production branch.
-- Use Node.js 24. The checked-in Vercel configuration handles the Vite build and `/api/room` function.
-- Set `SUPABASE_SECRET_KEY` (or legacy `SUPABASE_SERVICE_ROLE_KEY`) in Vercel's secure environment settings. Never put it in chat, source, or a `VITE_` variable.
-- The project URL is included in `config/supabase-public.js`. `SUPABASE_URL` can override it.
-- Apply `supabase/migrations/202611090001_create_tea_rooms.sql` after inspecting the target project. It creates the rooms table, enables row-level security, and denies direct browser access. Only the server role reads or writes the table.
-- Push changes to trigger the connected build. The owner-provided production URL is `https://officechayakkada.vercel.app/`.
-
-No additional database migration is needed for passwords: private password metadata is stored inside the existing protected room JSON. Production refuses ephemeral local storage if the database secret is missing. The public health endpoint reports configuration presence, not a successful database round-trip.
-
-This managed environment currently blocks requests to the production website and Supabase/Vercel APIs; hosted deployment and database connectivity must be verified after Vercel completes its build.
-
-## Access
-
-Passwords are salted and hashed with scrypt. Plain passwords are never stored or returned. Password metadata stays server-side and is stripped from every room response. The browser receives a signed, room-scoped session lasting seven days, not the password. Invite links contain neither passwords nor sessions. Ten incorrect password attempts lock further unlock attempts for one minute. Locking the workspace forgets this browser's session.
-
-Everyone with the link **and password** can manage the shared orders, sponsorship, prices, and payment book. There are no individual accounts or admin roles. Share these only within the company. Recent workspaces and remembered names are local to the browser; they do not reveal room data without a valid session.
-
-Older rooms created with email sign-in are preserved. In the browser previously signed in to an older room, open its invite link and set a shared password inline. The server verifies that existing Supabase session before the one-time upgrade. Without that old session, create a new workspace or arrange an administrator-assisted migration; unauthenticated users cannot claim old financial records. No new email sign-in screen is provided.
-
-## Checks
-
-Node tests cover password hashing, session scope/expiry/tampering, hidden password metadata, protected reads and payments, internal action rejection, safe legacy upgrade, throttling, ledger calculations, sponsorship, partial/full payments, concurrent Supabase updates, and invitation validation.
-
-Browser checks cover direct landing, password creation, incorrect/correct unlock, two employees sharing orders, copying the order/invitation, persistence, sponsorship, ledger entries, payments, locking, joining, and responsive layouts at 320/390/768/1440 pixels. Actual WhatsApp delivery and hosted Supabase operations are not tested by the local suite.
+Passwords use salted scrypt hashes. Password metadata is never sent to the browser. Room-scoped signed sessions last seven days. Ten incorrect password attempts trigger a one-minute pause. **Lock workspace** forgets this browser's access. Everyone with the team password can manage orders, prices, sponsorship, and payments; there are no individual employee accounts or administrator roles.
