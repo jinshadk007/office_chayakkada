@@ -1,10 +1,15 @@
 import { randomUUID } from 'node:crypto';
 export const defaults={tea:1200,coffee:2000,black:1000,lemon:1500};
 export function fresh(company){return {company,orders:[],ledger:[],prices:{...defaults},sponsor:null};}
+const nowMillis=()=>Date.now();
 const text=(v,max)=>typeof v==='string'?v.trim().slice(0,max):'';
 export function change(room,action){
  const name=text(action.name,60),now=new Date().toISOString();
  switch(action.type){
+ // Internal access updates. The HTTP API never accepts these action names.
+ case '_setAccess':if(room._access)throw Error('This workspace already has a password.');room._access=action.access;break;
+ case '_failedAccess':if(nowMillis()-room._access.windowStart>=60000){room._access.failed=0;room._access.windowStart=nowMillis();}room._access.failed++;break;
+ case '_resetAccessFailures':room._access.failed=0;room._access.windowStart=0;break;
  case 'add': {
  if(!name||!Object.hasOwn(defaults,action.drink)||!Number.isInteger(action.qty)||action.qty<1||action.qty>50)throw Error('Enter a name, drink, and quantity from 1 to 50.');
  if(room.orders.length>=200)throw Error('This round is full. Finish it before adding more.');

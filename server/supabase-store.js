@@ -13,8 +13,8 @@ export function createSupabaseStore({url,key,fetch}) {
   check(error);return data;
  }
  return {
-  async create(id,company){
-   const data=fresh(company);
+  async create(id,company,access){
+   const data=fresh(company);if(access)data._access=access;
    const {error}=await client.from('tea_rooms').insert({id,data,revision:0});
    check(error);return data;
   },

@@ -1,35 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createAuthenticator,AuthError} from '../server/auth.js';
+import {randomUUID} from 'node:crypto';
+import {passwordAccess,matchesPassword,sessionToken,requireRoomAccess,publicRoom,AccessError} from '../server/auth.js';
 import handler from '../api/room.js';
-import {safeReturnPath} from '../src/auth/paths.js';
-
-const url='https://project.supabase.co',key='test-publishable-key';
-test('server authentication rejects missing/malformed authorization before calling Supabase',async()=>{
- let calls=0;const authenticate=createAuthenticator({url,key,fetch:async()=>{calls++;throw Error('should not run')}});
- for(const header of [undefined,'','Basic credentials','Bearer','Bearer token extra',['Bearer token']])await assert.rejects(authenticate({headers:{authorization:header}}),e=>e instanceof AuthError&&e.status===401);
- assert.equal(calls,0);
-});
-test('server asks Supabase Auth to verify bearer tokens and returns verified identity',async()=>{
- const authenticate=createAuthenticator({url,key,fetch:async(input,options)=>{
-  assert.equal(new URL(input).pathname,'/auth/v1/user');
-  assert.equal(new Headers(options.headers).get('Authorization'),'Bearer opaque-token');
-  return Response.json({id:'verified-user',email:'employee@example.com'});
- }});
- assert.equal((await authenticate({headers:{authorization:'Bearer opaque-token'}})).id,'verified-user');
-});
-test('invalid/expired bearer tokens are rejected instead of trusting their claims',async()=>{
- const authenticate=createAuthenticator({url,key,fetch:async()=>Response.json({message:'JWT expired',code:'bad_jwt'},{status:401})});
- await assert.rejects(authenticate({headers:{authorization:'Bearer invalid-token'}}),e=>e instanceof AuthError&&e.status===401);
-});
-test('anonymous users cannot create, read, or mutate workspaces',async()=>{
- for(const req of [{method:'POST',url:'/api/room',body:{company:'Private office'}},{method:'GET',url:'/api/room?id=00000000-0000-4000-8000-000000000000'},{method:'POST',url:'/api/room?id=00000000-0000-4000-8000-000000000000',body:{type:'payment',name:'A',amount:1}}]){
-  let code,body;await handler({...req,headers:{}},{setHeader(){},set statusCode(value){code=value},end(value){body=JSON.parse(value)}});
-  assert.equal(code,401);assert.match(body.error,/sign in/i);
- }
-});
-test('invitation destinations survive authentication without accepting open redirects',()=>{
- const origin='https://tea.example.com',room='00000000-0000-4000-8000-000000000000';
- assert.equal(safeReturnPath('/?room='+room,origin),'/?room='+room);
- for(const path of ['https://evil.example.com','//evil.example.com','/login','/auth/callback','/?room=<script>','javascript:alert(1)','/\\evil.example.com'])assert.equal(safeReturnPath(path,origin),'/');
-});
+import {create} from '../server/store.js';
+const invoke=async(method,url,body,token)=>{let status,json;await handler({method,url,body,headers:token?{authorization:'Bearer '+token}:{}},{setHeader(){},set statusCode(v){status=v},end(v){json=JSON.parse(v)}});return {status,json}};
+test('company passwords are salted and verified without storing plaintext',async()=>{const a=await passwordAccess('tea-time'),b=await passwordAccess('tea-time');assert.notEqual(a.hash,b.hash);assert.notEqual(a.salt,b.salt);assert.equal(await matchesPassword('tea-time',a),true);assert.equal(await matchesPassword('wrong',a),false);await assert.rejects(passwordAccess('short'),AccessError);assert.ok(!JSON.stringify(a).includes('tea-time'));});
+test('room sessions reject tampering, wrong rooms, and expiry',async()=>{const id=randomUUID(),access=await passwordAccess('tea-time'),token=sessionToken(id,access,0);const req={headers:{authorization:'Bearer '+token}};requireRoomAccess(req,id,access,1000);assert.throws(()=>requireRoomAccess(req,randomUUID(),access,1000),AccessError);assert.throws(()=>requireRoomAccess(req,id,access,8*86400000),AccessError);assert.throws(()=>requireRoomAccess({headers:{authorization:'Bearer '+token+'x'}},id,access,1000),AccessError);});
+test('room responses never expose password hashes or attempt metadata',()=>{const result=publicRoom({data:{company:'Office',_access:{salt:'private',hash:'private'}},revision:4});assert.deepEqual(result,{data:{company:'Office'},revision:4});});
+test('password-only API protects reads, payments, and internal access actions',async()=>{const created=await invoke('POST','/api/room',{company:'API test',password:'tea-time'});assert.equal(created.status,201);assert.equal(created.json.data._access,undefined);const {id,token}=created.json,url='/api/room?id='+id;assert.equal((await invoke('GET',url)).status,401);assert.equal((await invoke('POST',url,{type:'payment',name:'A',amount:1})).status,401);assert.equal((await invoke('GET',url,undefined,token)).status,200);assert.equal((await invoke('POST',url,{type:'_setAccess',access:{}},token)).status,400);const wrong=await invoke('POST',url+'&access=unlock',{password:'wrong'});assert.equal(wrong.status,401);const right=await invoke('POST',url+'&access=unlock',{password:'tea-time'});assert.equal(right.status,200);assert.equal(right.json.data._access,undefined);assert.ok(right.json.token);});
+test('new workspaces require a password; old workspaces cannot be claimed anonymously',async()=>{assert.equal((await invoke('POST','/api/room',{company:'Missing password'})).status,400);const id=randomUUID();await create(id,'Older office');const url='/api/room?id='+id;assert.equal((await invoke('GET',url)).status,409);assert.equal((await invoke('POST',url+'&access=setup',{password:'tea-time'})).status,401);});
+test('repeated incorrect passwords are throttled',async()=>{const {json:{id}}=await invoke('POST','/api/room',{company:'Throttle test',password:'tea-time'}),url='/api/room?id='+id+'&access=unlock';for(let i=0;i<10;i++)assert.equal((await invoke('POST',url,{password:'wrong'})).status,401);assert.equal((await invoke('POST',url,{password:'wrong'})).status,429);});
