@@ -15,7 +15,7 @@ npm run dev
 
 Do not overwrite an existing `.env.local`; the current cloud checkout already contains the public project URL/key supplied in chat. No secret key is stored there.
 
-Set these **public** variables for the browser:
+The repository includes the owner-provided project URL and publishable key in `config/supabase-public.js` so a GitHub-connected build has working public configuration without the ignored local env file. These are public identifiers, not a server secret. To override them for another project, set these **public** variables:
 
 ```text
 VITE_SUPABASE_URL=https://your-project.supabase.co
@@ -63,9 +63,9 @@ Workspace UUID links are invitations: any **signed-in user with the link** has e
 
 ## Vercel deployment
 
-1. Deploy the checkout with the Vercel CLI, or push it to GitHub and import the repository in Vercel.
-2. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to the project's production environment variables.
-3. Add server-only `SUPABASE_URL` and `SUPABASE_SECRET_KEY` (or legacy `SUPABASE_SERVICE_ROLE_KEY`) in Vercel's secure environment settings. Never put a secret under a `VITE_` variable. Public values are embedded at build time, so redeploy after changes.
+1. The tested app is on GitHub `main`. Connect `jinshadk007/office_chayakkada` in Vercel with `main` as the production branch. The owner-provided site is `https://officechayakkada.vercel.app/`. A Git push triggers the connected build; verify its status in Vercel.
+2. Public Supabase project settings are included in the source. `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` can override them; set both together when changing projects.
+3. Add server-only `SUPABASE_SECRET_KEY` (or legacy `SUPABASE_SERVICE_ROLE_KEY`) in Vercel's secure environment settings. `SUPABASE_URL` can override the included project URL. Never put a secret under a `VITE_` variable. Public values are embedded at build time, so redeploy after changes.
 4. Apply the database migration and configure Supabase Auth URLs as above.
 5. Use Node.js 24. `vercel.json` configures Vite, the room API, and direct navigation to login and Auth callback routes.
 6. Deploy, then verify sign-up/email confirmation, login, invitation links in two browsers, password recovery, signing out, and anonymous API rejection on the real site.
@@ -76,7 +76,7 @@ npx vercel deploy --prod
 
 Production deliberately refuses local/ephemeral room storage if server database credentials are missing. The Supabase SDK uses HTTPS with TLS verification.
 
-No public deployment has been completed here. Supabase/Vercel tools are not exposed in this chat despite the tagged plugin. This managed environment denies requests to the Supabase project host and `api.vercel.com`. Allow the specific project hostname and required Vercel API/login destinations in environment settings before retrying live setup. Keep secret keys and tokens in secure settings, never in chat.
+The source has been pushed to the connected production branch; public deployment success has not been independently verified here. Supabase/Vercel tools are not exposed in this chat despite the tagged plugin. This managed environment denies requests to the Supabase project host and `api.vercel.com` and `officechayakkada.vercel.app`. Allow the specific project hostname and required Vercel API/login destinations in environment settings before retrying live setup. Keep secret keys and tokens in secure settings, never in chat.
 
 ## Frontend flow
 

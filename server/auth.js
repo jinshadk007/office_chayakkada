@@ -1,4 +1,5 @@
 import {createClient} from '@supabase/supabase-js';
+import {publicSupabase} from '../config/supabase-public.js';
 
 export class AuthError extends Error {
  constructor(message,status=401){super(message);this.status=status;}
@@ -27,8 +28,7 @@ let authenticate;
 export async function requireUser(req){
  // Reject anonymous requests even when deployment configuration is incomplete.
  if(typeof req.headers?.authorization!=='string'||!/^Bearer [^\s]+$/i.test(req.headers.authorization))throw new AuthError('Please sign in to access your workspace.');
- const url=process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL;
- const key=process.env.SUPABASE_PUBLISHABLE_KEY||process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+ const {url,key}=publicSupabase({url:process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL,key:process.env.SUPABASE_PUBLISHABLE_KEY||process.env.VITE_SUPABASE_PUBLISHABLE_KEY});
  if(!url||!key)throw new AuthError('Sign-in is temporarily unavailable. Please try again later.',503);
  authenticate??=createAuthenticator({url,key});
  return authenticate(req);

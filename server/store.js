@@ -1,13 +1,18 @@
 import {fresh,change} from './domain.js';
+import {publicSupabase} from '../config/supabase-public.js';
 let db,remote;
+function databaseSettings(){
+ const {url}=publicSupabase({url:process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL});
+ return {url,key:process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY};
+}
 export function configuration(){
- const configured=!!process.env.SUPABASE_URL&&!!(process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY);
- return {configured:configured||(!process.env.VERCEL&&!process.env.SUPABASE_URL&&!process.env.SUPABASE_SECRET_KEY&&!process.env.SUPABASE_SERVICE_ROLE_KEY),mode:configured?'supabase':'local'};
+ const {key}=databaseSettings();
+ return {configured:!!key||!process.env.VERCEL,mode:key?'supabase':process.env.VERCEL?'unconfigured':'local'};
 }
 async function connection(){
- if(process.env.SUPABASE_URL||process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY){
-  if(!process.env.SUPABASE_URL||!(process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY))throw Error('DATABASE_NOT_CONFIGURED');
-  if(!remote){const {createSupabaseStore}=await import('./supabase-store.js');remote=createSupabaseStore({url:process.env.SUPABASE_URL,key:process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY});}
+ const {url,key}=databaseSettings();
+ if(key){
+  if(!remote){const {createSupabaseStore}=await import('./supabase-store.js');remote=createSupabaseStore({url,key});}
   return remote;
  }
  if(process.env.VERCEL)throw Error('DATABASE_NOT_CONFIGURED');
