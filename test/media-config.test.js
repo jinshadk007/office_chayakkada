@@ -1,0 +1,8 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {isApprovedMedia,approvedVideoScene,approvedFrameScene,generatedScene,voiceLines} from '../src/media-config.js';
+import {createFramePlayer} from '../src/frame-player.js';
+const film={publicationApproved:true,newlyGeneratedFilm:true,consentReference:'TEST-CONSENT-ONLY',license:'Test fixture',src:'/media/approved/test.mp4',framePath:'/media/approved/frame-',frameCount:36,width:240,height:426};
+test('no generated film or synthetic voice is enabled without supplied assets and publication approval',()=>{assert.equal(approvedVideoScene(),null);assert.equal(approvedFrameScene(),null);assert.equal(generatedScene.publicationApproved,false);for(const line of Object.values(voiceLines))assert.equal(isApprovedMedia(line),false);});
+test('new-film integration rejects old footage, missing consent, unpublished files, and external paths',()=>{assert.equal(approvedVideoScene(film),film);for(const change of [{publicationApproved:false},{consentReference:null},{license:null},{newlyGeneratedFilm:false},{src:'/media/tea-delivery.mp4'},{src:'https://elsewhere.example/film.mp4'},{src:'/media/approved/../old.mp4'}])assert.equal(approvedVideoScene({...film,...change}),null);});
+test('frame sequences require bounded valid metadata and approved local assets',()=>{assert.equal(approvedFrameScene(film),film);for(const change of [{framePath:'/media/tea-frames/frame-'},{frameCount:0},{frameCount:241},{width:0},{height:undefined}])assert.equal(approvedFrameScene({...film,...change}),null);assert.throws(()=>createFramePlayer({canvas:{},asset:generatedScene}),/approved/);});

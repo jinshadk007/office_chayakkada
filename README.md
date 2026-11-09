@@ -8,7 +8,16 @@ Open `https://officechayakkada.vercel.app/`, enter the shared Orattice password,
 
 The first visit sets the shared password once. Everyone subsequently uses the same address and password. Orders and payments are stored on the server, so refreshes and other employees' phones see the same saved book. Browser storage only remembers the session and your name; it is not the source of shared orders.
 
-The uploaded tea-delivery reference is included as a compressed, silent 2.4-second clip. The cup mascot, steam, order reactions, and sponsor celebration are decorative. **Pause the fun** stops video and animations. Reduced-motion preferences start the scene paused. The phone ordering view uses a compact clip so the form stays close to the top.
+The cinematic frontend keeps the cream/green design and existing order form. GSAP/ScrollTrigger adds headline entry, subtle parallax, staggered form reveals, and an order-section surprise. Cup selection and quantity have gentle interactions; a Malayalam delivery message and confetti appear only after the server confirms an order. Optional procedural tea-shop effects stay off until a click. There is no generated or cloned voice active.
+
+**The new AI film has not been generated.** No video/lip-sync generator or provider credential is available in this environment. The old video is not reused or shipped. The reference photo is the static fallback. The complete replaceable video/frame integration and production prompts are ready:
+
+- `docs/cinematic-assets.md`: exactly which files to supply and how to activate them.
+- `docs/ai-tea-storyboard.md`: three-shot storyboard, exact prompts and Malayalam dialogue, consent and voice direction.
+- `src/media-config.js`: inactive asset manifest; publication/consent/license checks prevent silent substitution.
+- `scripts/prepare-cinematic.mjs`: exports an approved new film into optimized WebP frames, silent seek-friendly MP4, poster, and metadata. It is an optimizer, not a generator.
+
+Desktop can scrub either the new film or its exported frames. Phone fallback is a static photo plus explicit film playback. Media loads only near the scene or after playback is requested; frame mode caches at most 24 frames and loads only nearby frames. Motion-off/reduced-motion cancels scrolling animations and pauses media. Lip-synced speech is available only through deliberate real-time film playback with approved audio, not through irregular/reverse scroll scrubbing.
 
 ## Database connection — required for the live site
 
@@ -43,10 +52,10 @@ npm run build
 
 Local development uses persistent SQLite at `.local/chayakkada.sqlite`, with no credentials required. Tests use their own temporary databases and never clear the development book. `TEA_SQLITE_PATH` can override the local path. Hosted production never falls back to SQLite. `npm run preview` only serves static assets; use the dev server for functional API checks.
 
-Browser tests use system Chromium or Playwright Chromium (`npx playwright install chromium`); `CHROMIUM_PATH` can override the executable. They exercise two employee browsers, actual password/session handling, video playback/pause, reduced motion, sponsorship, partial payments, responsive layouts, refresh, and persistence after restarting the local server. Adapter tests use controlled PostgREST responses; they do not verify the hosted Supabase project.
+Browser tests use system Chromium or Playwright Chromium (`npx playwright install chromium`); `CHROMIUM_PATH` can override the executable. They exercise two employee browsers, actual password/session handling, optional sound, success/failure celebrations, native scroll seeking/reverse, lazy frame seeking/reverse, mobile playback, reduced motion, sponsorship, partial payments, refresh, and persistence after restarting the local server. Cinematic tests use clearly labelled synthetic test fixtures, not a fake teammate film. FFmpeg is required for cinematic test fixtures and the asset-export script. Adapter tests use controlled PostgREST responses; they do not verify the hosted Supabase project.
 
 ## Deployment
 
-Vercel follows GitHub `main`. Node.js 24, the Vite build, and `/api/room` are configured in source. Push tested changes to trigger the connected production build. The uploaded original MOV is not included; only its compressed silent clip and poster are served.
+Vercel follows GitHub `main`. Node.js 24, the Vite build, and `/api/room` are configured in source. Push tested changes to trigger the connected production build. The old video is not included. No new AI-video asset is active; the existing still provides the fallback.
 
 Passwords use salted scrypt hashes. Password metadata is never sent to the browser. Room-scoped signed sessions last seven days. Ten incorrect password attempts trigger a one-minute pause. **Lock workspace** forgets this browser's access. Everyone with the team password can manage orders, prices, sponsorship, and payments; there are no individual employee accounts or administrator roles.
